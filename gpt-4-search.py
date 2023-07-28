@@ -23,8 +23,14 @@ import ssl
 import readline
 from typing import Optional
 
+from flask import Flask, request
+from flask_cors import CORS, cross_origin
+
+
 load_dotenv()
 
+app = Flask(__name__)
+CORS(app)
 
 # Utils
 
@@ -35,7 +41,7 @@ def count_tokens(text: str) -> int:
     return len(tokens)
 
 
-def request(url: str) -> list[str]:
+def requestt(url: str) -> list[str]:
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
     resp = requests.get(url, headers=headers).text
@@ -105,7 +111,7 @@ def summarize(snippet_ids: str) -> str:
     summary = ''
     for id in json.loads(snippet_ids):
         try:
-            docs = request(links[id]["link"])
+            docs = requestt(links[id]["link"])
             top_k = top_k_similar_docs(links[id]["query"], docs, 2)
             summary += f'[{id}]\n'
             summary += '\n'.join(top_k)
@@ -230,6 +236,7 @@ def show_references():
         output += f"[{id}]: {links[id]['link']}\n"
     print(output)
     references = []
+    return output
 
 
 def run(query: str) -> str:
@@ -270,20 +277,41 @@ def run(query: str) -> str:
             return resp
 
 
+@app.route('/', methods=["POST"])
+@cross_origin()
+def main():
+    incoming_msg = request.get_json();
+
+    user_input = incoming_msg["question"]
+    logging.info(f"user-input: {user_input}")
+    try:
+        global res; 
+        global ref;
+        res = run(user_input)
+        ref = show_references()
+    except Exception as e:
+        print("Error:", e)
+    print(type(res + str(ref)))
+    # logging.info(res)
+    return res + str(ref);
+
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s:%(message)s',
-        handlers=[
-            logging.FileHandler("gpt-search.log"),
-            # logging.StreamHandler()
-        ]
-    )
-    while True:
-        user_input = input("> ")
-        logging.info(f"user-input: {user_input}")
-        try:
-            run(user_input)
-            show_references()
-        except Exception as e:
-            print("Error:", e)
+    app.run(host="0.0.0.0", port="5000")
+
+    # logging.basicConfig(
+    #     level=logging.INFO,
+    #     format='%(asctime)s %(levelname)s:%(message)s',
+    #     handlers=[
+    #         logging.FileHandler("gpt-search.log"),
+    #         # logging.StreamHandler()
+    #     ]
+    # )
+    # while True:
+    #     user_input = input("> ")
+    #     logging.info(f"user-input: {user_input}")
+    #     try:
+    #         run(user_input)
+    #         show_references()
+    #     except Exception as e:
+    #         print("Error:", e)
+
